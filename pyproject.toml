@@ -1,0 +1,26 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "jev-support-router"
+version = "0.1.0"
+description = "Typed customer-support routing with Jev and LangChain"
+readme = "README.md"
+requires-python = ">=3.10,<4.0"
+dependencies = [
+  "langchain-typesafe==0.0.1a2",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+jev-route = "jev_router.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/jev_router"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
