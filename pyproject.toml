@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "jev-support-router"
 version = "0.1.0"
-description = "Typed customer-support routing with Jev and LangChain"
+description = "Typed decision-making with Jev: a support router and a snake environment"
 readme = "README.md"
 requires-python = ">=3.10,<4.0"
 dependencies = [
@@ -14,12 +14,16 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+ui = [
+    "pygame-ce>=2.5",
+]
 
 [project.scripts]
 jev-route = "jev_router.cli:main"
+snake = "snake_jev.cli:main"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/jev_router"]
+packages = ["src/jev_router", "src/snake_jev"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
