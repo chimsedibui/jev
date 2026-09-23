@@ -366,7 +366,7 @@ class SnakeUI:
         return y + 10
 
     def _panel_header(self, x, y, width) -> int:
-        self._text("JEV", x, y, self.font, ACCENT)
+        self._text(self.agent.name.upper(), x, y, self.font, ACCENT)
         model = getattr(self.agent, "model", None) or "waiting for first reply"
         y = self._text(model, x, y + 3, self.font_small, MUTED, right=x + width)
         return self._rule(x, y + 8, width)
@@ -446,6 +446,8 @@ class SnakeUI:
                 f"{stats.get('input_tokens', 0)} in / {stats.get('output_tokens', 0)} out",
             ),
         ]
+        if stats.get("cost"):
+            rows.append(("cost", f"${stats['cost']:.4f}"))
         for label, value in rows:
             self._text(label, x, y, self.font_small, MUTED)
             y = self._text(value, x, y, self.font_small, TEXT, right=x + width)

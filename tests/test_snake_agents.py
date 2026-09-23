@@ -201,8 +201,22 @@ def test_the_log_records_an_api_failure_without_ending_the_episode(place):
     move = agent.next_direction(game.state)
 
     assert move in game.state.safe_moves()
-    assert agent.log[-1].note == "TimeoutError"
+    # The note carries the reason, short enough for the log panel.
+    assert agent.log[-1].note == "TimeoutError: upstream timed out"
     assert agent.stats["errors"] == 1
+
+
+def test_a_long_error_message_is_reduced_to_its_type(place):
+    class Broken:
+        def invoke(self, value):
+            raise RuntimeError("x" * 200)
+
+    game = place(SnakeGame(8, 8, seed=1), [(2, 4), (1, 4)], (5, 4))
+    agent = JevAgent(Broken())
+
+    agent.next_direction(game.state)
+
+    assert agent.log[-1].note == "RuntimeError"
 
 
 def test_usage_and_latency_accumulate_across_calls(place):

@@ -22,7 +22,15 @@ LangChain `Runnable` thay vì bọc nó thành LLM.
 
 ## Chạy project
 
-Yêu cầu Python 3.10 trở lên và một API key từ TypeSafe.
+Yêu cầu Python 3.10 trở lên. Key nào cần cho việc gì:
+
+| Biến | Dùng cho |
+|---|---|
+| `TYPESAFE_API_KEY` | `jev-route`, và `snake --agent jev` (Jev thật) |
+| `OPENROUTER_API_KEY` | `snake --agent openrouter` (chat model, không phải Jev) |
+
+Hai key này không thay thế cho nhau. Key OpenRouter (`sk-or-v1-…`) đặt vào
+`TYPESAFE_API_KEY` sẽ cho 401, vì nó được gửi tới `api.typesafe.ai`.
 
 TypeSafe chưa cấp API key vẫn có thể chạy toàn bộ luồng CLI ở chế độ offline:
 
@@ -176,10 +184,39 @@ thời gian chờ mỗi request (mặc định 10s, ngắn hơn mức 30s mặc 
 key. Nó đọc chuỗi prompt chứ không đọc `GameState`, nên nếu prompt thiếu thông
 tin thì mock cũng sai theo — đúng như Jev sẽ sai.
 
+### Chạy bằng LLM qua OpenRouter (không phải Jev)
+
+```bash
+uv run snake ui --agent openrouter
+uv run snake auto --agent openrouter --width 6 --height 6 --model qwen/qwen3-30b-a3b-instruct-2507
+```
+
+Cần `OPENROUTER_API_KEY`. Mặc định là `openai/gpt-4o-mini`; đổi bằng `--model`,
+model nào cũng được miễn hỗ trợ `top_logprobs`.
+
+Đây **không phải Jev**. OpenRouter không phục vụ Jev — nó định tuyến tới các
+chat model. Điểm khác quan trọng nhất là chỗ lấy xác suất: Jev trả thẳng một
+phân phối có hiệu chuẩn trên các nhãn m đưa, còn ở đây phân phối được đọc từ
+`top_logprobs` của token đầu tiên mà model sinh ra. Nhiều token viết ra cùng
+một nước (`UP`, ` UP`, `Up`) được cộng gộp rồi chuẩn hóa lại trên bốn nhãn.
+
+Cách này không hỏi model tự chấm điểm chắc chắn — con số nó tự khai là số bịa.
+Nhưng logprobs của chat model cũng không được hiệu chuẩn như Jev, nên hãy đọc
+cột confidence ở đây như một chỉ dấu, không phải một phép đo.
+
+Nếu model trả lời dài dòng thay vì một từ, phân phối token vẫn cho biết nó
+nghiêng về hướng nào, và nước đó được dùng. Chỉ khi không có cả hai thì lượt đó
+mới rơi về agent dự phòng.
+
+Chi phí và tốc độ thực đo với `gpt-4o-mini`: khoảng 196 token input và
+$0.00003 mỗi nước, độ trễ ~2 giây. Tức là một ván 6x6 mất vài phút và tốn vài
+cent; board 12x12 thì lâu hơn nhiều. Panel hiện tổng chi phí khi API có báo về.
+
 ### Policy: Jev phán đoán, code quyết định
 
 `JevAgent` nhận bất cứ object nào có `.invoke(text)`, nên game không phụ thuộc
-trực tiếp vào `langchain-typesafe`:
+trực tiếp vào `langchain-typesafe`, và cùng một policy dùng được cho cả Jev lẫn
+OpenRouter:
 
 ```python
 from langchain_typesafe import TypeSafeClassifier

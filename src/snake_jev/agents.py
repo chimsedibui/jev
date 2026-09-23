@@ -113,6 +113,14 @@ class GreedyAgent:
         return len(seen)
 
 
+def _short_error(exc: Exception) -> str:
+    """A label that fits the log panel and still says what went wrong."""
+
+    detail = str(exc).strip().splitlines()[0] if str(exc).strip() else ""
+    label = type(exc).__name__
+    return f"{label}: {detail[:40]}" if detail and len(detail) <= 40 else label
+
+
 @dataclass(frozen=True)
 class JevDecision:
     """One Jev call, kept so the UI and the logs can show what happened."""
@@ -154,12 +162,11 @@ class JevAgent:
     Every call lands in `log` with the reason, which is what the UI panel reads.
     """
 
-    name = "jev"
-
     def __init__(
         self,
         classifier: Any,
         *,
+        name: str = "jev",
         question_key: str = "move",
         min_confidence: float = 0.0,
         fallback: Agent | None = None,
@@ -167,6 +174,7 @@ class JevAgent:
     ) -> None:
         if not 0 <= min_confidence <= 1:
             raise ValueError("min_confidence must be between 0 and 1")
+        self.name = name
         self._classifier = classifier
         self._question_key = question_key
         self._min_confidence = min_confidence
@@ -181,6 +189,7 @@ class JevAgent:
             "latency_ms": 0.0,
             "input_tokens": 0,
             "output_tokens": 0,
+            "cost": 0.0,
         }
 
     @property
@@ -232,13 +241,14 @@ class JevAgent:
             meta["latency_ms"] = (time.perf_counter() - started) * 1000
             self.stats["errors"] += 1
             self._record(meta)
-            return None, type(exc).__name__, meta
+            return None, _short_error(exc), meta
 
         meta["latency_ms"] = (time.perf_counter() - started) * 1000
         self.model = getattr(result, "model", None) or self.model
         usage = getattr(result, "usage", None)
         meta["input_tokens"] = getattr(usage, "input_tokens", None)
         meta["output_tokens"] = getattr(usage, "output_tokens", None)
+        meta["cost"] = getattr(usage, "cost", None)
         self._record(meta)
 
         try:
@@ -261,6 +271,7 @@ class JevAgent:
         self.stats["latency_ms"] += meta.get("latency_ms", 0.0)
         self.stats["input_tokens"] += meta.get("input_tokens") or 0
         self.stats["output_tokens"] += meta.get("output_tokens") or 0
+        self.stats["cost"] += meta.get("cost") or 0.0
 
 
 class MockMoveClassifier:
@@ -309,7 +320,7 @@ class MockMoveClassifier:
                 "move": SimpleNamespace(
                     choice=choice,
                     probabilities=probabilities,
-                    confidence=_concentration(probabilities),
+                    confidence=concentration(probabilities),
                 )
             },
         )
@@ -322,7 +333,7 @@ class MockMoveClassifier:
         return {name for name in MOVE_CRITERIA if name.lower() in line.lower()}
 
 
-def _concentration(probabilities: dict[str, float]) -> float:
+def concentration(probabilities: dict[str, float]) -> float:
     """How peaked a distribution is, on a 0..1 scale, like TypeSafe's confidence."""
 
     n = len(probabilities)

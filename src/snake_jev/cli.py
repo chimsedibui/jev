@@ -14,7 +14,7 @@ from .prompt import build_move_question, describe_state
 from .render import KEY_TO_DIRECTION, draw, raw_terminal, read_key
 from .runner import benchmark, run_episode
 
-AGENTS = ("greedy", "random", "jev")
+AGENTS = ("greedy", "random", "jev", "openrouter")
 
 
 def build_agent(args: argparse.Namespace):
@@ -27,6 +27,18 @@ def build_agent(args: argparse.Namespace):
         return GreedyAgent()
     if name == "random":
         return RandomAgent(None)
+
+    if name == "openrouter":
+        # A chat model, not Jev; the same policy wrapper still applies.
+        from .openrouter import DEFAULT_MODEL, OpenRouterMoveClassifier
+
+        return JevAgent(
+            OpenRouterMoveClassifier(
+                model=args.model or DEFAULT_MODEL, timeout=args.timeout
+            ),
+            name="openrouter",
+            min_confidence=args.min_confidence,
+        )
 
     if args.mock:
         classifier = MockMoveClassifier()
@@ -60,6 +72,9 @@ def _add_agent_args(parser: argparse.ArgumentParser, *, required: bool) -> None:
     )
     parser.add_argument("--min-confidence", type=float, default=0.0)
     parser.add_argument("--timeout", type=float, default=10.0)
+    parser.add_argument(
+        "--model", default=None, help="Model id, for the openrouter agent"
+    )
 
 
 def _add_board_args(parser: argparse.ArgumentParser) -> None:
@@ -138,7 +153,7 @@ def cmd_auto(args: argparse.Namespace) -> int:
         agent = factory()
         payload = run_episode(game, agent).to_dict()
         if hasattr(agent, "log"):
-            payload["jev"] = {
+            payload[agent.name] = {
                 "model": agent.model,
                 **agent.stats,
                 "mean_latency_ms": round(agent.mean_latency_ms, 1),
